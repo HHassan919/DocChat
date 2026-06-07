@@ -1,6 +1,11 @@
 // page.tsx — Main page for DocChat.
 // Composes the sidebar (upload + provider settings) and the chat window.
 // Owns all application state: session, messages, provider, loading flags.
+//
+// The integration contract between sidebar and chat:
+//   1. User uploads → backend returns session_id → chat enabled
+//   2. User sends question → backend returns answer + sources → displayed
+//   3. Provider/key changes affect only future /ask calls, not past messages
 
 "use client";
 
