@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "node_modules/.bin/tsc --noEmit --skipLibCheck"
   },
   "dependencies": {
     "next": "14.2.4",

@@ -124,7 +124,7 @@ function EmptyState({ hasDocuments }: { hasDocuments: boolean }) {
       <p className="text-sm text-gray-500 max-w-xs leading-relaxed">
         {hasDocuments
           ? "Ask any question about the documents you uploaded. Answers will include exact source citations."
-          : "Upload one or more PDF files on the left, or click "Try with sample documents" to get started immediately."}
+          : 'Upload one or more PDF files on the left, or click “Try with sample documents” to get started immediately.'}
       </p>
     </div>
   );
