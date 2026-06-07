@@ -15,6 +15,7 @@ interface FileUploadProps {
 
 const MAX_FILES = 5;
 const MAX_SIZE_MB = 20;
+const ACCEPTED_TYPES = ["application/pdf", "application/x-pdf"];
 
 export default function FileUpload({
   onUpload,
@@ -27,11 +28,15 @@ export default function FileUpload({
   const inputRef = useRef<HTMLInputElement>(null);
 
   function validateFiles(files: File[]): string | null {
+    if (files.length === 0) return "No files selected.";
     if (files.length > MAX_FILES) {
       return `Maximum ${MAX_FILES} files allowed per upload.`;
     }
     for (const file of files) {
-      if (!file.name.toLowerCase().endsWith(".pdf")) {
+      const isPdf =
+        file.name.toLowerCase().endsWith(".pdf") ||
+        ACCEPTED_TYPES.includes(file.type);
+      if (!isPdf) {
         return `"${file.name}" is not a PDF. Only PDF files are accepted.`;
       }
       if (file.size > MAX_SIZE_MB * 1024 * 1024) {
