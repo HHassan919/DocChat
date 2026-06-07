@@ -103,7 +103,7 @@ See `.env.example` for full documentation.
 
 ### Backend → Render
 
-1. Push this repository to GitHub
+1. Repository is live at [github.com/HHassan919/DocChat](https://github.com/HHassan919/DocChat)
 2. Create a new **Web Service** on [Render](https://render.com)
 3. Connect your GitHub repository
 4. Set **Build Command**: `pip install -r requirements.txt`
@@ -205,4 +205,4 @@ Commercial use or redistribution requires explicit written permission from the a
 **Hateem Hassan** — Full-Stack AI Engineer
 
 - LinkedIn: [linkedin.com/in/hateem-hassan/](https://linkedin.com/in/hateem-hassan/)
-- GitHub: [github.com/hateem-hassan](https://github.com/hateem-hassan)
+- GitHub: [github.com/HHassan919](https://github.com/HHassan919)
