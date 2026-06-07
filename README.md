@@ -15,18 +15,18 @@
 
 ## What It Does
 
-DocChat lets you upload PDF documents and ask questions about them in natural language. It retrieves the most relevant sections from your documents using semantic search and generates accurate answers with source citations — showing exactly which document and page each answer came from.
+DocChat lets you upload PDF documents and ask questions about them in natural language. It uses semantic search to find the most relevant sections across your documents and generates accurate answers with source citations — showing exactly which document and page each answer came from.
 
 No hallucination. No guessing. Every answer is grounded in your documents.
 
 ## Features
 
-- **Multi-document upload** — up to 5 PDFs per session, 20 MB each
-- **Cited answers** — every response shows document name, page number, and a matched excerpt
-- **Provider-flexible LLM** — HuggingFace free tier by default; bring your own OpenAI or Gemini key for higher quality
-- **Sample documents** — click "Try with sample documents" to explore immediately, no upload needed
-- **Session isolation** — each session has its own in-memory vector store; nothing persists on the server
-- **Clean, professional UI** — built for daily use, not demos
+- **Multi-document upload** — drag and drop up to 5 PDFs, 20 MB each
+- **Cited answers** — every response shows document name, page number, and the matched excerpt
+- **Three LLM options** — use the free default, or plug in your own Gemini or OpenAI key for higher quality
+- **Sample documents** — hit "Try with sample documents" to explore the app instantly, no upload needed
+- **Session isolation** — each session has its own in-memory vector store; nothing is persisted on the server
+- **Fully containerized** — runs with a single `docker-compose up` command
 
 ## Tech Stack
 
@@ -34,13 +34,33 @@ No hallucination. No guessing. Every answer is grounded in your documents.
 |---|---|
 | Backend API | Python 3.11, FastAPI |
 | RAG Orchestration | LangChain |
-| Vector Store | Chroma (in-memory) |
+| Vector Store | Chroma (in-memory, per-session) |
 | PDF Extraction | pdfplumber |
-| Embeddings | sentence-transformers/all-MiniLM-L6-v2 (HuggingFace) |
-| Default LLM | Mistral-7B-Instruct-v0.2 (HuggingFace free tier) |
-| Optional LLMs | OpenAI GPT-4o-mini, Google Gemini 1.5 Flash |
+| Embeddings | sentence-transformers/all-MiniLM-L6-v2 |
+| Default LLM | Zephyr-7B-Beta (HuggingFace free tier) |
+| Optional LLMs | Google Gemini 1.5 Flash, OpenAI GPT-4o-mini |
 | Frontend | Next.js 14 (App Router), TypeScript, Tailwind CSS |
 | Deployment | Render (backend), Vercel (frontend) |
+
+## LLM Providers
+
+DocChat works out of the box with no API key required. If you want better answer quality, you can switch providers in the sidebar during any session.
+
+| Provider | Model | Cost | How to switch |
+|---|---|---|---|
+| **HuggingFace** (default) | Zephyr-7B-Beta | Free, no key needed | Selected by default |
+| **Google Gemini** | Gemini 1.5 Flash | Free API key | Get key at [aistudio.google.com](https://aistudio.google.com) → paste in the sidebar |
+| **OpenAI** | GPT-4o-mini | Pay-per-use | Get key at [platform.openai.com](https://platform.openai.com/api-keys) → paste in the sidebar |
+
+**How to change providers in the app:**
+1. Open the **LLM Provider** panel in the left sidebar (click to expand)
+2. Select your preferred provider
+3. For Gemini or OpenAI, paste your API key in the field that appears
+4. Your next question will use the selected provider
+
+> Your API key is sent with each request and is never stored, logged, or retained on the server. It lives only in your browser tab.
+
+**Recommended for best results:** Google Gemini — free API key, takes 30 seconds to set up, and produces significantly better answers than the anonymous free tier.
 
 ## Local Setup — Without Docker
 
@@ -48,7 +68,14 @@ No hallucination. No guessing. Every answer is grounded in your documents.
 - Python 3.11+
 - Node.js 18+
 
-### Backend
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/HHassan919/DocChat.git
+cd DocChat
+```
+
+### 2. Backend
 
 ```bash
 cd backend
@@ -56,19 +83,18 @@ python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp ../.env.example .env
-# Edit .env if you have a HuggingFace token (optional but recommended)
+# Optional: add your HF_API_TOKEN to .env for better rate limits
 uvicorn main:app --reload --port 8000
 ```
 
-The API will be available at `http://localhost:8000`.
-Visit `http://localhost:8000/docs` for the interactive API documentation.
+API runs at `http://localhost:8000`.
+Interactive API docs at `http://localhost:8000/docs`.
 
-### Frontend
+### 3. Frontend
 
 ```bash
 cd frontend
 npm install
-# Create .env.local
 echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
 npm run dev
 ```
@@ -77,52 +103,56 @@ Open `http://localhost:3000`.
 
 ## Local Setup — With Docker
 
-```bash
-# Copy and configure environment variables
-cp .env.example .env
-# Optionally set HF_API_TOKEN in .env
+The fastest way to run the full stack locally.
 
+### Prerequisites
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+
+### Run
+
+```bash
+git clone https://github.com/HHassan919/DocChat.git
+cd DocChat
+cp .env.example .env
+# Optional: add your HF_API_TOKEN in .env
 docker-compose up --build
 ```
 
-Open `http://localhost:3000`. Both services start automatically; the frontend
-waits for the backend health check to pass before serving traffic.
+Open `http://localhost:3000`. Both services start automatically — the frontend waits for the backend health check before serving traffic.
 
-## Environment Variables
+To stop:
+```bash
+docker-compose down
+```
 
-| Variable | Description | Required |
-|---|---|---|
-| `HF_API_TOKEN` | HuggingFace API token — improves rate limits on free models | Optional |
-| `PORT` | Backend server port (Render sets this automatically) | Optional (default: 8000) |
-| `FRONTEND_ORIGIN` | Frontend URL for CORS — set to your Vercel URL in production | Optional (default: localhost:3000) |
-| `NEXT_PUBLIC_API_URL` | Backend URL used by the frontend | Required in production |
-
-See `.env.example` for full documentation.
-
-## Deployment
+## Cloud Deployment
 
 ### Backend → Render
 
-1. Repository is live at [github.com/HHassan919/DocChat](https://github.com/HHassan919/DocChat)
-2. Create a new **Web Service** on [Render](https://render.com)
+1. Fork or clone this repo to your GitHub account
+2. Go to [render.com](https://render.com) → **New** → **Web Service**
 3. Connect your GitHub repository
-4. Set **Build Command**: `pip install -r requirements.txt`
-5. Set **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-6. Add environment variables:
-   - `HF_API_TOKEN` — your HuggingFace token (optional but recommended)
-   - `FRONTEND_ORIGIN` — your Vercel deployment URL (once deployed)
-7. Set **Health Check Path** to `/health`
-8. Click **Deploy**
-
-> The `render.yaml` in `backend/` can also be used for infrastructure-as-code deployment.
+4. Configure the service:
+   - **Root Directory:** `backend`
+   - **Build Command:** `pip install -r requirements.txt`
+   - **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
+   - **Health Check Path:** `/health`
+5. Add environment variables:
+   - `HF_API_TOKEN` — your HuggingFace token *(optional, improves rate limits)*
+   - `FRONTEND_ORIGIN` — your Vercel frontend URL *(add after the next step)*
+6. Click **Deploy** and note your Render URL (e.g. `https://docchat-api.onrender.com`)
 
 ### Frontend → Vercel
 
-1. Import this GitHub repository on [Vercel](https://vercel.com)
-2. Set the **Root Directory** to `frontend`
-3. Add environment variable:
-   - `NEXT_PUBLIC_API_URL` — your Render backend URL (e.g. `https://docchat-api.onrender.com`)
-4. Click **Deploy**
+1. Go to [vercel.com](https://vercel.com) → **New Project**
+2. Import your GitHub repository
+3. Set **Root Directory** to `frontend`
+4. Add environment variable:
+   - `NEXT_PUBLIC_API_URL` → your Render URL from the step above
+5. Click **Deploy** and note your Vercel URL
+6. Go back to Render → update `FRONTEND_ORIGIN` to your Vercel URL → **Redeploy**
+
+> **Note:** Render's free tier spins down after 15 minutes of inactivity. The first request after a cold start takes ~30 seconds. Upgrade to a paid Render plan to eliminate this.
 
 ## How It Works
 
@@ -133,33 +163,44 @@ User uploads PDF(s)
 pdfplumber extracts text page-by-page
       │
       ▼
-LangChain RecursiveCharacterTextSplitter
-chunks text (800 chars, 100 overlap)
+LangChain splits text into overlapping chunks
+(800 characters, 100 character overlap)
       │
       ▼
-HuggingFace Inference API embeds each chunk
+HuggingFace embeds each chunk as a vector
 (sentence-transformers/all-MiniLM-L6-v2)
       │
       ▼
-Chroma stores embeddings + metadata
+Chroma stores vectors + metadata
 (document name, page number, chunk index)
       │
 User asks a question
       │
       ▼
-Question is embedded and compared
-against stored chunks (cosine similarity)
+Question is embedded and compared against
+stored chunks using cosine similarity
       │
       ▼
-Top 5 chunks retrieved with source metadata
+Top 5 most relevant chunks retrieved
       │
       ▼
-LLM generates a cited answer
-(HuggingFace / OpenAI / Gemini via LangChain)
+LLM generates a cited answer using only
+the retrieved chunks (no hallucination)
       │
       ▼
-Answer + sources returned to frontend
+Answer + source citations returned to UI
 ```
+
+## Environment Variables
+
+| Variable | Description | Required |
+|---|---|---|
+| `HF_API_TOKEN` | HuggingFace token — improves rate limits on the free tier | Optional |
+| `PORT` | Backend server port (Render sets this automatically) | Optional (default: `8000`) |
+| `FRONTEND_ORIGIN` | Frontend URL for CORS — set to your Vercel URL in production | Optional (default: `http://localhost:3000`) |
+| `NEXT_PUBLIC_API_URL` | Backend URL used by the frontend | Required in production |
+
+Copy `.env.example` to `.env` (backend) and `frontend/.env.local` (frontend) to get started.
 
 ## Project Structure
 
@@ -167,27 +208,27 @@ Answer + sources returned to frontend
 DocChat/
 ├── backend/
 │   ├── main.py              # FastAPI routes: /upload, /ask, /load-samples, /health
-│   ├── rag_pipeline.py      # RAG logic: extraction, chunking, embedding, retrieval, generation
+│   ├── rag_pipeline.py      # Full RAG pipeline: extract → chunk → embed → retrieve → generate
 │   ├── requirements.txt     # Pinned Python dependencies
-│   ├── Dockerfile           # Multi-stage Docker build
+│   ├── Dockerfile           # Multi-stage Docker build with non-root user
 │   ├── render.yaml          # Render deployment config
-│   └── sample_docs/         # Pre-bundled sample PDFs for demo
+│   └── sample_docs/         # Pre-bundled PDFs for the "Try with samples" feature
 ├── frontend/
 │   ├── app/
-│   │   ├── page.tsx         # Main page — owns all session state
-│   │   ├── layout.tsx       # Root layout with metadata
-│   │   ├── globals.css      # Tailwind base + custom animations
+│   │   ├── page.tsx              # Main page — owns all session and provider state
+│   │   ├── layout.tsx            # Root layout with metadata
+│   │   ├── globals.css           # Tailwind base + custom animations
 │   │   ├── components/
-│   │   │   ├── ChatWindow.tsx      # Message history + input bar
-│   │   │   ├── MessageBubble.tsx   # User/assistant message rendering
-│   │   │   ├── FileUpload.tsx      # Drag-drop PDF uploader
-│   │   │   ├── ApiKeyInput.tsx     # Provider selector + key input
-│   │   │   └── SourceCitation.tsx  # Collapsible citation cards
+│   │   │   ├── ChatWindow.tsx    # Scrollable message history + input bar
+│   │   │   ├── MessageBubble.tsx # User/assistant bubbles + typing indicator
+│   │   │   ├── FileUpload.tsx    # Drag-drop PDF uploader with client-side validation
+│   │   │   ├── ApiKeyInput.tsx   # Provider selector + API key input
+│   │   │   └── SourceCitation.tsx # Collapsible citation cards per answer
 │   │   └── lib/
-│   │       └── api.ts       # Typed backend API client
+│   │       └── api.ts            # Typed API client (upload, ask, load-samples)
 │   ├── Dockerfile           # Multi-stage Next.js Docker build
 │   └── vercel.json          # Vercel deployment config
-├── docker-compose.yml       # Local full-stack development
+├── docker-compose.yml       # Local full-stack: backend + frontend with health checks
 ├── .env.example             # All environment variables documented
 ├── LICENSE                  # Portfolio/evaluation use only
 └── README.md
