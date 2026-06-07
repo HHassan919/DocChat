@@ -14,6 +14,7 @@ export interface Message {
   sources?: Citation[];
   isLoading?: boolean;
   isError?: boolean;
+  timestamp?: Date;
 }
 
 interface MessageBubbleProps {
