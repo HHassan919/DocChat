@@ -50,3 +50,4 @@ tmp/
 
 # Docker volumes
 data/
+frontend/tsconfig.tsbuildinfo
