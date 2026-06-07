@@ -1,6 +1,9 @@
 // ApiKeyInput.tsx — Collapsible panel for selecting LLM provider and entering
 // an optional API key. The key is held only in component state and sent
-// per-request; it is never stored, logged, or persisted.
+// per-request; it is never stored, logged, or persisted to any backend.
+//
+// Provider status is reflected in the collapsed header so the user always
+// knows which model will answer their next question without opening the panel.
 
 "use client";
 
@@ -47,6 +50,8 @@ export default function ApiKeyInput({
   const [showKey, setShowKey] = useState(false);
 
   const currentProvider = PROVIDERS.find((p) => p.id === provider)!;
+  const hasKey = apiKey.trim().length > 0;
+  const isReady = !currentProvider.requiresKey || hasKey;
 
   return (
     <div className="border border-gray-100 rounded-xl bg-white overflow-hidden">
@@ -61,7 +66,10 @@ export default function ApiKeyInput({
           <SparklesIcon className="w-4 h-4 text-accent-500" />
           <div className="text-left">
             <p className="text-xs font-semibold text-gray-700">LLM Provider</p>
-            <p className="text-xs text-gray-400">{currentProvider.label}</p>
+            <p className="text-xs text-gray-400 flex items-center gap-1">
+              <span className={clsx("w-1.5 h-1.5 rounded-full inline-block flex-shrink-0", isReady ? "bg-green-500" : "bg-amber-400")} />
+              {currentProvider.label}{!isReady && " — key required"}
+            </p>
           </div>
         </div>
         <ChevronIcon
