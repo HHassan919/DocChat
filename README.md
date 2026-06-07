@@ -44,7 +44,7 @@ No hallucination. No guessing. Every answer is grounded in your documents.
 
 ## LLM Providers
 
-DocChat works out of the box with no API key required. Switch providers at any time using the **LLM Provider** panel in the sidebar — changes take effect on your next question without any page reload.
+On first load, DocChat shows a setup screen where you pick a provider and enter your API key. This is a one-time step — once done, the full interface unlocks. You can switch providers at any time using the **LLM Provider** panel in the sidebar; changes take effect on your next question without a page reload.
 
 | # | Provider | Model | Cost | What you need |
 |---|---|---|---|---|
@@ -54,11 +54,12 @@ DocChat works out of the box with no API key required. Switch providers at any t
 | 4 | **Google Gemini** | Gemini 1.5 Flash (default) | Free key | API key from [aistudio.google.com](https://aistudio.google.com) |
 | 5 | **OpenAI** | GPT-4o-mini (default) | Paid | API key from [platform.openai.com](https://platform.openai.com/api-keys) |
 
-**How to switch providers:**
+**First-time setup:** A setup screen appears on first load — pick your provider, paste your key, and click **Start chatting**. The interface unlocks immediately.
+
+**Changing providers at runtime:**
 1. Open the **LLM Provider** panel in the left sidebar (click to expand)
-2. Select a provider — the panel shows exactly what each one needs
-3. Paste your API key and optionally specify a model (or leave blank to use the default)
-4. Ask your next question — it uses the new provider immediately
+2. Select a new provider, paste your key, and optionally override the model
+3. Ask your next question — it uses the new provider immediately
 
 **Model override:** For providers 2–5 you can type any compatible model ID in the model field. Leave it blank to use the default shown in the placeholder. Examples:
 - Anthropic: `claude-3-5-sonnet-20241022`, `claude-3-opus-20240229`

@@ -1,12 +1,3 @@
-// page.tsx — Main page for DocChat.
-// Composes the sidebar (upload + provider settings) and the chat window.
-// Owns all application state: session, messages, provider, loading flags.
-//
-// The integration contract between sidebar and chat:
-//   1. User uploads → backend returns session_id → chat enabled
-//   2. User sends question → backend returns answer + sources → displayed
-//   3. Provider/key changes affect only future /ask calls, not past messages
-
 "use client";
 
 import { useState, useCallback } from "react";
@@ -14,6 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 import FileUpload from "./components/FileUpload";
 import ChatWindow from "./components/ChatWindow";
 import ApiKeyInput, { type Provider } from "./components/ApiKeyInput";
+import SetupModal from "./components/SetupModal";
 import { type Message } from "./components/MessageBubble";
 import {
   uploadDocuments,
@@ -23,6 +15,9 @@ import {
 } from "./lib/api";
 
 export default function HomePage() {
+  // Setup gate — true once the user completes provider selection
+  const [isSetupComplete, setIsSetupComplete] = useState(false);
+
   // Session state
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [loadedDocs, setLoadedDocs] = useState<string[]>([]);
@@ -30,8 +25,8 @@ export default function HomePage() {
   // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
 
-  // Provider state — changes take effect on the next question sent
-  const [provider, setProvider] = useState<Provider>("huggingface");
+  // Provider state — set by SetupModal, adjustable at runtime via ApiKeyInput
+  const [provider, setProvider] = useState<Provider>("gemini");
   const [apiKey, setApiKey] = useState("");
   const [modelId, setModelId] = useState("");
 
@@ -57,6 +52,21 @@ export default function HomePage() {
 
   function showError(text: string) {
     addMessage({ role: "assistant", content: text, isError: true });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Setup handler
+  // ---------------------------------------------------------------------------
+
+  function handleSetupComplete(
+    selectedProvider: Provider,
+    selectedKey: string,
+    selectedModel: string
+  ) {
+    setProvider(selectedProvider);
+    setApiKey(selectedKey);
+    setModelId(selectedModel);
+    setIsSetupComplete(true);
   }
 
   // ---------------------------------------------------------------------------
@@ -146,7 +156,7 @@ export default function HomePage() {
         setIsAsking(false);
       }
     },
-    [sessionId, provider, apiKey]
+    [sessionId, provider, apiKey, modelId]
   );
 
   // ---------------------------------------------------------------------------
@@ -156,83 +166,88 @@ export default function HomePage() {
   const isLoading = isUploading || isAsking;
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header */}
-      <header className="flex-shrink-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-accent-600 flex items-center justify-center">
-            <DocumentMagnifyingGlassIcon className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h1 className="text-base font-bold text-gray-900 leading-none">DocChat</h1>
-            <p className="text-xs text-gray-400 mt-0.5">Ask questions about your documents, get cited answers</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          <span className="hidden sm:block">
-            {sessionId ? (
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-                Session active · {loadedDocs.length} doc{loadedDocs.length !== 1 ? "s" : ""}
-              </span>
-            ) : (
-              "No documents loaded"
-            )}
-          </span>
-        </div>
-      </header>
+    <>
+      {/* Setup modal — blocks the UI until a provider and key are configured */}
+      {!isSetupComplete && <SetupModal onComplete={handleSetupComplete} />}
 
-      {/* Main layout */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <aside className="w-72 flex-shrink-0 border-r border-gray-100 bg-white flex flex-col overflow-y-auto">
-          <div className="p-4 space-y-4 flex-1">
-            <div>
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Documents
-              </h2>
-              <FileUpload
-                onUpload={handleUpload}
-                onLoadSamples={handleLoadSamples}
-                isLoading={isUploading}
-                loadedDocuments={loadedDocs}
-              />
+      <div className="flex flex-col h-screen bg-gray-50">
+        {/* Header */}
+        <header className="flex-shrink-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-accent-600 flex items-center justify-center">
+              <DocumentMagnifyingGlassIcon className="w-4 h-4 text-white" />
             </div>
-
             <div>
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                Settings
-              </h2>
-              <ApiKeyInput
-                provider={provider}
-                onProviderChange={setProvider}
-                apiKey={apiKey}
-                onApiKeyChange={setApiKey}
-                modelId={modelId}
-                onModelIdChange={setModelId}
-              />
+              <h1 className="text-base font-bold text-gray-900 leading-none">DocChat</h1>
+              <p className="text-xs text-gray-400 mt-0.5">Ask questions about your documents, get cited answers</p>
             </div>
           </div>
-
-          {/* Sidebar footer */}
-          <div className="p-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Documents are processed in-memory for this session only. Nothing is stored on the server.
-            </p>
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <span className="hidden sm:block">
+              {sessionId ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                  Session active · {loadedDocs.length} doc{loadedDocs.length !== 1 ? "s" : ""}
+                </span>
+              ) : (
+                "No documents loaded"
+              )}
+            </span>
           </div>
-        </aside>
+        </header>
 
-        {/* Chat panel */}
-        <main className="flex-1 flex flex-col overflow-hidden">
-          <ChatWindow
-            messages={messages}
-            onSend={handleSend}
-            isLoading={isLoading}
-            hasDocuments={!!sessionId}
-          />
-        </main>
+        {/* Main layout */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar */}
+          <aside className="w-72 flex-shrink-0 border-r border-gray-100 bg-white flex flex-col overflow-y-auto">
+            <div className="p-4 space-y-4 flex-1">
+              <div>
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  Documents
+                </h2>
+                <FileUpload
+                  onUpload={handleUpload}
+                  onLoadSamples={handleLoadSamples}
+                  isLoading={isUploading}
+                  loadedDocuments={loadedDocs}
+                />
+              </div>
+
+              <div>
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  Settings
+                </h2>
+                <ApiKeyInput
+                  provider={provider}
+                  onProviderChange={setProvider}
+                  apiKey={apiKey}
+                  onApiKeyChange={setApiKey}
+                  modelId={modelId}
+                  onModelIdChange={setModelId}
+                />
+              </div>
+            </div>
+
+            {/* Sidebar footer */}
+            <div className="p-4 border-t border-gray-100">
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Documents are processed in-memory for this session only. Nothing is stored on the server.
+              </p>
+            </div>
+          </aside>
+
+          {/* Chat panel */}
+          <main className="flex-1 flex flex-col overflow-hidden">
+            <ChatWindow
+              messages={messages}
+              onSend={handleSend}
+              isLoading={isLoading}
+              hasDocuments={!!sessionId}
+            />
+          </main>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

@@ -167,7 +167,7 @@ class RAGPipeline:
         prompt = RAG_PROMPT_TEMPLATE.format(context=context, question=question)
 
         if provider == "huggingface":
-            answer = self._invoke_with_hf_fallback(prompt)
+            answer = self._invoke_with_hf_fallback(prompt, api_key)
         else:
             llm = self._build_llm(provider, api_key, model_id)
             answer = self._invoke_llm(llm, prompt)
@@ -362,15 +362,15 @@ class RAGPipeline:
             f"Choose from: {', '.join(sorted(SUPPORTED_PROVIDERS))}."
         )
 
-    def _invoke_with_hf_fallback(self, prompt: str) -> str:
+    def _invoke_with_hf_fallback(self, prompt: str, api_key: str | None = None) -> str:
         """
         Try each model in FREE_HF_FALLBACK_MODELS in order until one responds.
 
         Catches any exception per model and moves on — covers rate limits,
-        cold-start 503s, auth errors on anonymous tier, and model loading timeouts.
-        Uses HF_API_TOKEN env var if set; otherwise tries anonymously.
+        cold-start 503s, and model loading timeouts.
+        Uses the caller-supplied api_key first, then falls back to HF_API_TOKEN env var.
         """
-        hf_token = os.getenv("HF_API_TOKEN") or None
+        hf_token = api_key or os.getenv("HF_API_TOKEN") or None
         last_exc: Exception | None = None
 
         for model_id in FREE_HF_FALLBACK_MODELS:

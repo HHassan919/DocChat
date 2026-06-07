@@ -1,107 +1,10 @@
-// ApiKeyInput.tsx — Provider selector with API key and optional model override.
-// Supports five LLM providers selectable at runtime without page reload.
-// Keys and model IDs are held only in component state and sent per-request —
-// they are never stored, logged, or persisted anywhere on the server.
-
 "use client";
 
 import { useState } from "react";
 import clsx from "clsx";
+import { type Provider, PROVIDERS } from "../lib/providers";
 
-export type Provider =
-  | "huggingface"
-  | "huggingface_custom"
-  | "anthropic"
-  | "gemini"
-  | "openai";
-
-interface ProviderConfig {
-  id: Provider;
-  label: string;
-  badge: string;
-  badgeColor: string;
-  description: string;
-  requiresKey: boolean;
-  requiresModel: boolean;     // model field is required (huggingface_custom)
-  showModel: boolean;         // model field is visible
-  defaultModel: string;       // shown as placeholder; used server-side when field is empty
-  modelExamples: string;      // hint text under the model field
-  keyPlaceholder: string;
-  keyHint: string;
-}
-
-const PROVIDERS: ProviderConfig[] = [
-  {
-    id: "huggingface",
-    label: "HuggingFace",
-    badge: "Free",
-    badgeColor: "bg-green-100 text-green-700",
-    description: "No key required — tries Zephyr-7B-Beta first, then falls back through 4 models automatically",
-    requiresKey: false,
-    requiresModel: false,
-    showModel: false,
-    defaultModel: "HuggingFaceH4/zephyr-7b-beta",
-    modelExamples: "",
-    keyPlaceholder: "",
-    keyHint: "",
-  },
-  {
-    id: "huggingface_custom",
-    label: "HuggingFace Custom",
-    badge: "Free key",
-    badgeColor: "bg-sky-100 text-sky-700",
-    description: "Any public HF model — bring your token and choose the model",
-    requiresKey: true,
-    requiresModel: true,
-    showModel: true,
-    defaultModel: "",
-    modelExamples: "e.g. mistralai/Mistral-7B-Instruct-v0.2",
-    keyPlaceholder: "hf_••••••••••••••••••••••••",
-    keyHint: "Get a free token at huggingface.co/settings/tokens",
-  },
-  {
-    id: "anthropic",
-    label: "Anthropic Claude",
-    badge: "Paid",
-    badgeColor: "bg-orange-100 text-orange-700",
-    description: "Claude 3.5 Haiku by default — fast, smart, excellent at following instructions",
-    requiresKey: true,
-    requiresModel: false,
-    showModel: true,
-    defaultModel: "claude-3-5-haiku-20241022",
-    modelExamples: "e.g. claude-3-5-sonnet-20241022, claude-3-opus-20240229",
-    keyPlaceholder: "sk-ant-••••••••••••••••••••••••",
-    keyHint: "Get a key at console.anthropic.com",
-  },
-  {
-    id: "gemini",
-    label: "Google Gemini",
-    badge: "Free key",
-    badgeColor: "bg-sky-100 text-sky-700",
-    description: "Gemini 1.5 Flash by default — free API key, excellent quality",
-    requiresKey: true,
-    requiresModel: false,
-    showModel: true,
-    defaultModel: "gemini-1.5-flash",
-    modelExamples: "e.g. gemini-1.5-pro, gemini-2.0-flash",
-    keyPlaceholder: "AIza••••••••••••••••••••••••••••••••",
-    keyHint: "Get a free key at aistudio.google.com",
-  },
-  {
-    id: "openai",
-    label: "OpenAI",
-    badge: "Paid",
-    badgeColor: "bg-amber-100 text-amber-700",
-    description: "GPT-4o-mini by default — best reasoning quality, pay-per-use",
-    requiresKey: true,
-    requiresModel: false,
-    showModel: true,
-    defaultModel: "gpt-4o-mini",
-    modelExamples: "e.g. gpt-4o, gpt-4-turbo, gpt-3.5-turbo",
-    keyPlaceholder: "sk-••••••••••••••••••••••••••••••••",
-    keyHint: "Get a key at platform.openai.com/api-keys",
-  },
-];
+export type { Provider };
 
 interface ApiKeyInputProps {
   provider: Provider;
@@ -207,6 +110,11 @@ export default function ApiKeyInput({
                     <span className={clsx("text-[10px] font-semibold px-1.5 py-0.5 rounded-full", p.badgeColor)}>
                       {p.badge}
                     </span>
+                    {p.recommended && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-accent-100 text-accent-700">
+                        Recommended
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{p.description}</p>
                 </div>
@@ -215,36 +123,44 @@ export default function ApiKeyInput({
           </div>
 
           {/* API key field */}
-          {current.requiresKey && (
-            <div className="space-y-1.5">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
               <p className="text-xs font-medium text-gray-500">
                 API key
                 <span className="text-gray-400 font-normal ml-1">— sent per-request, never stored</span>
               </p>
-              <div className="relative">
-                <input
-                  type={showKey ? "text" : "password"}
-                  value={apiKey}
-                  onChange={(e) => onApiKeyChange(e.target.value)}
-                  placeholder={current.keyPlaceholder}
-                  autoComplete="off"
-                  spellCheck={false}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 pr-10 text-xs text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowKey((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-                  aria-label={showKey ? "Hide key" : "Show key"}
-                >
-                  {showKey ? <EyeOffIcon className="w-3.5 h-3.5" /> : <EyeIcon className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-              {current.keyHint && (
-                <p className="text-xs text-gray-400">{current.keyHint}</p>
-              )}
+              <a
+                href={current.keyLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] text-accent-600 hover:underline"
+              >
+                {current.badge.includes("Free") ? "Get free key →" : "Get key →"}
+              </a>
             </div>
-          )}
+            <div className="relative">
+              <input
+                type={showKey ? "text" : "password"}
+                value={apiKey}
+                onChange={(e) => onApiKeyChange(e.target.value)}
+                placeholder={current.keyPlaceholder}
+                autoComplete="off"
+                spellCheck={false}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 pr-10 text-xs text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey((v) => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                aria-label={showKey ? "Hide key" : "Show key"}
+              >
+                {showKey ? <EyeOffIcon className="w-3.5 h-3.5" /> : <EyeIcon className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            {current.keyHint && (
+              <p className="text-xs text-gray-400">{current.keyHint}</p>
+            )}
+          </div>
 
           {/* Model field */}
           {current.showModel && (
