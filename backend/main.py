@@ -138,6 +138,67 @@ def _get_session(session_id: str) -> RAGPipeline:
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _classify_llm_error(exc: Exception, provider: str) -> str:
+    """
+    Turn a raw LLM exception into a specific, actionable error message.
+
+    Inspects the exception string for known HuggingFace, Anthropic,
+    OpenAI, and Gemini error patterns so the client knows exactly what
+    to do rather than seeing a generic failure message.
+    """
+    raw = str(exc).lower()
+
+    if provider in ("huggingface", "huggingface_custom"):
+        if any(k in raw for k in ("authorization", "401", "403", "token", "authenticate")):
+            return (
+                "HuggingFace requires an API token for this model. "
+                "Get a free token at huggingface.co/settings/tokens, then paste it "
+                "in the HuggingFace Custom provider field — or switch to Google Gemini "
+                "which has a free API key and better quality."
+            )
+        if any(k in raw for k in ("rate limit", "429", "quota", "too many")):
+            return (
+                "HuggingFace free tier rate limit reached. "
+                "Add a free HF token to increase your limit, or switch to Google Gemini "
+                "(free API key at aistudio.google.com)."
+            )
+        if any(k in raw for k in ("loading", "currently loading", "503")):
+            return (
+                "The HuggingFace model is loading (cold start). "
+                "Wait 20–30 seconds and try again, or switch to Google Gemini for instant responses."
+            )
+        return (
+            "HuggingFace inference failed. The free tier has strict limits — "
+            "add a free HF token or switch to Google Gemini (free key at aistudio.google.com)."
+        )
+
+    if provider == "anthropic":
+        if any(k in raw for k in ("authentication", "401", "invalid x-api-key", "api_key")):
+            return "Invalid Anthropic API key. Check your key at console.anthropic.com."
+        if any(k in raw for k in ("credit", "billing", "402", "insufficient")):
+            return "Your Anthropic account has insufficient credits. Add credits at console.anthropic.com."
+
+    if provider == "openai":
+        if any(k in raw for k in ("authentication", "401", "incorrect api key")):
+            return "Invalid OpenAI API key. Check your key at platform.openai.com/api-keys."
+        if any(k in raw for k in ("quota", "billing", "402", "insufficient_quota")):
+            return "Your OpenAI account has run out of credits. Add credits at platform.openai.com/billing."
+
+    if provider == "gemini":
+        if any(k in raw for k in ("api key", "401", "403", "invalid")):
+            return "Invalid Google API key. Get a free key at aistudio.google.com."
+
+    return (
+        f"The language model returned an unexpected error ({provider}). "
+        "Check your API key and model ID, then try again."
+    )
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
@@ -226,10 +287,8 @@ async def ask_question(body: AskRequest) -> AskResponse:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Error generating answer for session %s", body.session_id)
-        raise HTTPException(
-            status_code=502,
-            detail="The language model returned an error. Try a different provider or check your API key.",
-        ) from exc
+        detail = _classify_llm_error(exc, body.provider)
+        raise HTTPException(status_code=502, detail=detail) from exc
 
     return AskResponse(
         answer=answer,
