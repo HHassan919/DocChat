@@ -57,9 +57,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory store: session_id → RAGPipeline instance
+# In-memory store: session_id → RAGPipeline instance.
 # Each session has its own isolated Chroma collection.
+# Sessions are not expired automatically — in a production system with
+# persistent traffic, add a TTL eviction policy using a background task.
 _sessions: dict[str, RAGPipeline] = {}
+
+# Hard limit on concurrent sessions to bound memory usage on free-tier hosts.
+MAX_CONCURRENT_SESSIONS = 100
 
 # ---------------------------------------------------------------------------
 # Request / Response models
@@ -138,8 +143,17 @@ def _get_session(session_id: str) -> RAGPipeline:
 
 @app.get("/health")
 async def health_check() -> dict:
-    """Liveness probe used by Render and other deployment platforms."""
-    return {"status": "ok", "service": "DocChat API", "version": "1.0.0"}
+    """
+    Liveness probe used by Render and other deployment platforms.
+
+    Returns active session count so ops teams can monitor memory usage.
+    """
+    return {
+        "status": "ok",
+        "service": "DocChat API",
+        "version": "1.0.0",
+        "active_sessions": len(_sessions),
+    }
 
 
 @app.post("/upload", response_model=UploadResponse)
@@ -154,6 +168,12 @@ async def upload_documents(
     Returns a session_id that must be included in subsequent /ask requests.
     The api_key is used only for this request and is never stored.
     """
+    if len(_sessions) >= MAX_CONCURRENT_SESSIONS:
+        raise HTTPException(
+            status_code=503,
+            detail="Server is at capacity. Please try again in a few minutes.",
+        )
+
     if len(files) > MAX_FILES_PER_UPLOAD:
         raise HTTPException(
             status_code=400,
