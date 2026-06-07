@@ -1,0 +1,52 @@
+# Claude Code session file — never push to GitHub
+CLAUDE.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+ENV/
+
+# FastAPI / Uvicorn
+*.log
+
+# Chroma vector store data
+chroma_data/
+
+# Environment variables — never commit real secrets
+.env
+.env.local
+.env.production
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Uploads (ephemeral, not stored)
+uploads/
+tmp/
+
+# Docker volumes
+data/

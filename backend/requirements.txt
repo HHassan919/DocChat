@@ -1,0 +1,33 @@
+# ==============================================================================
+# DocChat Backend — Python Dependencies
+# Pinned for reproducibility. Run: pip install -r requirements.txt
+# ==============================================================================
+
+# Web framework
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+python-multipart==0.0.9
+
+# LangChain orchestration
+langchain==0.2.6
+langchain-community==0.2.6
+langchain-huggingface==0.0.3
+langchain-openai==0.1.14
+langchain-google-genai==1.0.7
+
+# Vector store
+chromadb==0.5.3
+
+# PDF text extraction
+pdfplumber==0.11.1
+
+# Environment variables
+python-dotenv==1.0.1
+
+# HuggingFace integration
+huggingface-hub==0.23.4
+sentence-transformers==3.0.1
+
+# Utilities
+httpx==0.27.0
+aiofiles==23.2.1
