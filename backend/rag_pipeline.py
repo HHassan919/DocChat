@@ -37,10 +37,17 @@ DEFAULT_HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
 
 SUPPORTED_PROVIDERS = {"huggingface", "openai", "gemini"}
 
-# Prompt template — instructs the LLM to cite sources and stay grounded
-RAG_PROMPT_TEMPLATE = """You are DocChat, an expert document assistant. Answer the user's question using ONLY the information from the provided document excerpts below. If the answer is not in the excerpts, say "I could not find an answer in the provided documents."
+# Prompt template with explicit citation instructions and a clear no-hallucination boundary.
+# The numbered [N] markers align with the source list returned to the frontend.
+RAG_PROMPT_TEMPLATE = """You are DocChat, a precise document assistant. Your job is to answer questions using ONLY the information contained in the document excerpts provided below. Do not use any prior knowledge.
 
-Always be specific and cite which document and page your answer comes from.
+If the answer cannot be found in the excerpts, respond with exactly:
+"I could not find an answer to that question in the provided documents."
+
+When answering:
+- Be concise and direct
+- Reference the source number (e.g., "According to [1]...") when citing a fact
+- If multiple sources support the answer, cite all relevant ones
 
 --- DOCUMENT EXCERPTS ---
 {context}
@@ -48,7 +55,11 @@ Always be specific and cite which document and page your answer comes from.
 
 Question: {question}
 
-Answer (be concise and cite sources):"""
+Answer:"""
+
+# Minimum similarity score below which a chunk is considered irrelevant.
+# Chroma returns cosine similarity; 0.0 means completely dissimilar.
+MIN_RELEVANCE_SCORE = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -197,9 +208,23 @@ class RAGPipeline:
     # ------------------------------------------------------------------
 
     def _retrieve_chunks(self, question: str) -> list[Document]:
-        """Return the top-K most semantically similar chunks to the question."""
+        """
+        Return the top-K most semantically similar chunks to the question.
+
+        Uses similarity_search_with_score so we can log retrieval quality.
+        Low-scoring chunks are still included (the LLM decides relevance),
+        but the scores help with debugging in production logs.
+        """
         assert self._vectorstore is not None
-        return self._vectorstore.similarity_search(question, k=TOP_K_CHUNKS)
+        results = self._vectorstore.similarity_search_with_score(question, k=TOP_K_CHUNKS)
+        for doc, score in results:
+            logger.debug(
+                "Retrieved chunk — score: %.4f | source: %s | page: %s",
+                score,
+                doc.metadata.get("source"),
+                doc.metadata.get("page"),
+            )
+        return [doc for doc, _score in results]
 
     def _build_context(
         self, chunks: list[Document]
