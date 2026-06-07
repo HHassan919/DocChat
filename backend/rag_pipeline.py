@@ -33,7 +33,9 @@ CHUNK_SIZE = 800
 CHUNK_OVERLAP = 100
 TOP_K_CHUNKS = 5
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-DEFAULT_HF_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
+# Zephyr-7B is fine-tuned specifically for instruction following and gives
+# noticeably better RAG answers than base Mistral on the HF free tier.
+DEFAULT_HF_MODEL = "HuggingFaceH4/zephyr-7b-beta"
 
 SUPPORTED_PROVIDERS = {"huggingface", "openai", "gemini"}
 

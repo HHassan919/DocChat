@@ -19,23 +19,26 @@ interface ApiKeyInputProps {
   onApiKeyChange: (key: string) => void;
 }
 
-const PROVIDERS: { id: Provider; label: string; description: string; requiresKey: boolean }[] = [
+const PROVIDERS: { id: Provider; label: string; description: string; badge: string; requiresKey: boolean }[] = [
   {
     id: "huggingface",
-    label: "HuggingFace (free)",
-    description: "Mistral-7B via HuggingFace — no key required",
+    label: "HuggingFace",
+    description: "Zephyr-7B — no key needed, may be slow on free tier",
+    badge: "Free",
     requiresKey: false,
-  },
-  {
-    id: "openai",
-    label: "OpenAI",
-    description: "GPT-4o-mini — bring your own key",
-    requiresKey: true,
   },
   {
     id: "gemini",
     label: "Google Gemini",
-    description: "Gemini 1.5 Flash — bring your own key",
+    description: "Gemini 1.5 Flash — free API key at aistudio.google.com",
+    badge: "Free key",
+    requiresKey: true,
+  },
+  {
+    id: "openai",
+    label: "OpenAI",
+    description: "GPT-4o-mini — best quality, pay-per-use key from platform.openai.com",
+    badge: "Paid",
     requiresKey: true,
   },
 ];
@@ -104,9 +107,17 @@ export default function ApiKeyInput({
                   onChange={() => onProviderChange(p.id)}
                   className="mt-0.5 text-accent-600 focus:ring-accent-500"
                 />
-                <div>
-                  <p className="text-xs font-medium text-gray-700">{p.label}</p>
-                  <p className="text-xs text-gray-400">{p.description}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-medium text-gray-700">{p.label}</p>
+                    <span className={clsx(
+                      "text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
+                      p.badge === "Free" && "bg-green-100 text-green-700",
+                      p.badge === "Free key" && "bg-blue-100 text-blue-700",
+                      p.badge === "Paid" && "bg-amber-100 text-amber-700",
+                    )}>{p.badge}</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">{p.description}</p>
                 </div>
               </label>
             ))}
@@ -116,8 +127,8 @@ export default function ApiKeyInput({
           {currentProvider.requiresKey && (
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-gray-500">
-                API key{" "}
-                <span className="text-gray-400 font-normal">(optional — used for this session only)</span>
+                Your API key{" "}
+                <span className="text-gray-400 font-normal">— sent per-request only, never stored</span>
               </p>
               <div className="relative">
                 <input
