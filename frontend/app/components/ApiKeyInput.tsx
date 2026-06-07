@@ -1,83 +1,174 @@
-// ApiKeyInput.tsx — Collapsible panel for selecting LLM provider and entering
-// an optional API key. The key is held only in component state and sent
-// per-request; it is never stored, logged, or persisted to any backend.
-//
-// Provider status is reflected in the collapsed header so the user always
-// knows which model will answer their next question without opening the panel.
+// ApiKeyInput.tsx — Provider selector with API key and optional model override.
+// Supports five LLM providers selectable at runtime without page reload.
+// Keys and model IDs are held only in component state and sent per-request —
+// they are never stored, logged, or persisted anywhere on the server.
 
 "use client";
 
 import { useState } from "react";
 import clsx from "clsx";
 
-export type Provider = "huggingface" | "openai" | "gemini";
+export type Provider =
+  | "huggingface"
+  | "huggingface_custom"
+  | "anthropic"
+  | "gemini"
+  | "openai";
+
+interface ProviderConfig {
+  id: Provider;
+  label: string;
+  badge: string;
+  badgeColor: string;
+  description: string;
+  requiresKey: boolean;
+  requiresModel: boolean;     // model field is required (huggingface_custom)
+  showModel: boolean;         // model field is visible
+  defaultModel: string;       // shown as placeholder; used server-side when field is empty
+  modelExamples: string;      // hint text under the model field
+  keyPlaceholder: string;
+  keyHint: string;
+}
+
+const PROVIDERS: ProviderConfig[] = [
+  {
+    id: "huggingface",
+    label: "HuggingFace",
+    badge: "Free",
+    badgeColor: "bg-green-100 text-green-700",
+    description: "Zephyr-7B-Beta — no key or setup required",
+    requiresKey: false,
+    requiresModel: false,
+    showModel: false,
+    defaultModel: "HuggingFaceH4/zephyr-7b-beta",
+    modelExamples: "",
+    keyPlaceholder: "",
+    keyHint: "",
+  },
+  {
+    id: "huggingface_custom",
+    label: "HuggingFace Custom",
+    badge: "Free key",
+    badgeColor: "bg-sky-100 text-sky-700",
+    description: "Any public HF model — bring your token and choose the model",
+    requiresKey: true,
+    requiresModel: true,
+    showModel: true,
+    defaultModel: "",
+    modelExamples: "e.g. mistralai/Mistral-7B-Instruct-v0.2",
+    keyPlaceholder: "hf_••••••••••••••••••••••••",
+    keyHint: "Get a free token at huggingface.co/settings/tokens",
+  },
+  {
+    id: "anthropic",
+    label: "Anthropic Claude",
+    badge: "Paid",
+    badgeColor: "bg-orange-100 text-orange-700",
+    description: "Claude 3.5 Haiku by default — fast, smart, excellent at following instructions",
+    requiresKey: true,
+    requiresModel: false,
+    showModel: true,
+    defaultModel: "claude-3-5-haiku-20241022",
+    modelExamples: "e.g. claude-3-5-sonnet-20241022, claude-3-opus-20240229",
+    keyPlaceholder: "sk-ant-••••••••••••••••••••••••",
+    keyHint: "Get a key at console.anthropic.com",
+  },
+  {
+    id: "gemini",
+    label: "Google Gemini",
+    badge: "Free key",
+    badgeColor: "bg-sky-100 text-sky-700",
+    description: "Gemini 1.5 Flash by default — free API key, excellent quality",
+    requiresKey: true,
+    requiresModel: false,
+    showModel: true,
+    defaultModel: "gemini-1.5-flash",
+    modelExamples: "e.g. gemini-1.5-pro, gemini-2.0-flash",
+    keyPlaceholder: "AIza••••••••••••••••••••••••••••••••",
+    keyHint: "Get a free key at aistudio.google.com",
+  },
+  {
+    id: "openai",
+    label: "OpenAI",
+    badge: "Paid",
+    badgeColor: "bg-amber-100 text-amber-700",
+    description: "GPT-4o-mini by default — best reasoning quality, pay-per-use",
+    requiresKey: true,
+    requiresModel: false,
+    showModel: true,
+    defaultModel: "gpt-4o-mini",
+    modelExamples: "e.g. gpt-4o, gpt-4-turbo, gpt-3.5-turbo",
+    keyPlaceholder: "sk-••••••••••••••••••••••••••••••••",
+    keyHint: "Get a key at platform.openai.com/api-keys",
+  },
+];
 
 interface ApiKeyInputProps {
   provider: Provider;
   onProviderChange: (p: Provider) => void;
   apiKey: string;
   onApiKeyChange: (key: string) => void;
+  modelId: string;
+  onModelIdChange: (id: string) => void;
 }
-
-const PROVIDERS: { id: Provider; label: string; description: string; badge: string; requiresKey: boolean }[] = [
-  {
-    id: "huggingface",
-    label: "HuggingFace",
-    description: "Zephyr-7B — no key needed, may be slow on free tier",
-    badge: "Free",
-    requiresKey: false,
-  },
-  {
-    id: "gemini",
-    label: "Google Gemini",
-    description: "Gemini 1.5 Flash — free API key at aistudio.google.com",
-    badge: "Free key",
-    requiresKey: true,
-  },
-  {
-    id: "openai",
-    label: "OpenAI",
-    description: "GPT-4o-mini — best quality, pay-per-use key from platform.openai.com",
-    badge: "Paid",
-    requiresKey: true,
-  },
-];
 
 export default function ApiKeyInput({
   provider,
   onProviderChange,
   apiKey,
   onApiKeyChange,
+  modelId,
+  onModelIdChange,
 }: ApiKeyInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showKey, setShowKey] = useState(false);
 
-  const currentProvider = PROVIDERS.find((p) => p.id === provider)!;
+  const current = PROVIDERS.find((p) => p.id === provider)!;
   const hasKey = apiKey.trim().length > 0;
-  const isReady = !currentProvider.requiresKey || hasKey;
+  const hasModel = modelId.trim().length > 0;
+  const isReady =
+    !current.requiresKey ||
+    (hasKey && (!current.requiresModel || hasModel));
+
+  function handleProviderChange(newProvider: Provider) {
+    onProviderChange(newProvider);
+    onApiKeyChange("");
+    onModelIdChange("");
+    setShowKey(false);
+  }
 
   return (
     <div className="border border-gray-100 rounded-xl bg-white overflow-hidden">
-      {/* Header / toggle */}
+      {/* Collapsed header */}
       <button
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => setIsOpen((v) => !v)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500"
         aria-expanded={isOpen}
       >
         <div className="flex items-center gap-2.5">
-          <SparklesIcon className="w-4 h-4 text-accent-500" />
+          <SparklesIcon className="w-4 h-4 text-accent-500 flex-shrink-0" />
           <div className="text-left">
             <p className="text-xs font-semibold text-gray-700">LLM Provider</p>
-            <p className="text-xs text-gray-400 flex items-center gap-1">
-              <span className={clsx("w-1.5 h-1.5 rounded-full inline-block flex-shrink-0", isReady ? "bg-green-500" : "bg-amber-400")} />
-              {currentProvider.label}{!isReady && " — key required"}
+            <p className="text-xs text-gray-400 flex items-center gap-1.5 mt-0.5">
+              <span
+                className={clsx(
+                  "w-1.5 h-1.5 rounded-full inline-block flex-shrink-0",
+                  isReady ? "bg-green-500" : "bg-amber-400"
+                )}
+              />
+              {current.label}
+              {!isReady && (
+                <span className="text-amber-500">
+                  — {current.requiresModel && !hasModel ? "model required" : "key required"}
+                </span>
+              )}
             </p>
           </div>
         </div>
         <ChevronIcon
           className={clsx(
-            "w-4 h-4 text-gray-400 transition-transform duration-200",
+            "w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0",
             isOpen && "rotate-180"
           )}
         />
@@ -86,9 +177,12 @@ export default function ApiKeyInput({
       {/* Expandable body */}
       {isOpen && (
         <div className="border-t border-gray-100 px-4 pb-4 pt-3 space-y-3 animate-fade-in">
+
           {/* Provider selection */}
           <div className="space-y-1.5">
-            <p className="text-xs font-medium text-gray-500">Choose provider</p>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              Choose provider
+            </p>
             {PROVIDERS.map((p) => (
               <label
                 key={p.id}
@@ -104,56 +198,86 @@ export default function ApiKeyInput({
                   name="provider"
                   value={p.id}
                   checked={provider === p.id}
-                  onChange={() => onProviderChange(p.id)}
-                  className="mt-0.5 text-accent-600 focus:ring-accent-500"
+                  onChange={() => handleProviderChange(p.id)}
+                  className="mt-0.5 text-accent-600 focus:ring-accent-500 flex-shrink-0"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <p className="text-xs font-medium text-gray-700">{p.label}</p>
-                    <span className={clsx(
-                      "text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
-                      p.badge === "Free" && "bg-green-100 text-green-700",
-                      p.badge === "Free key" && "bg-blue-100 text-blue-700",
-                      p.badge === "Paid" && "bg-amber-100 text-amber-700",
-                    )}>{p.badge}</span>
+                    <span className={clsx("text-[10px] font-semibold px-1.5 py-0.5 rounded-full", p.badgeColor)}>
+                      {p.badge}
+                    </span>
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5">{p.description}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{p.description}</p>
                 </div>
               </label>
             ))}
           </div>
 
-          {/* API key input — shown only when the selected provider requires one */}
-          {currentProvider.requiresKey && (
+          {/* API key field */}
+          {current.requiresKey && (
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-gray-500">
-                Your API key{" "}
-                <span className="text-gray-400 font-normal">— sent per-request only, never stored</span>
+                API key
+                <span className="text-gray-400 font-normal ml-1">— sent per-request, never stored</span>
               </p>
               <div className="relative">
                 <input
                   type={showKey ? "text" : "password"}
                   value={apiKey}
                   onChange={(e) => onApiKeyChange(e.target.value)}
-                  placeholder={`Paste your ${currentProvider.label} API key…`}
+                  placeholder={current.keyPlaceholder}
                   autoComplete="off"
                   spellCheck={false}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 pr-10 text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 pr-10 text-xs text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => setShowKey((v) => !v)}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-                  aria-label={showKey ? "Hide API key" : "Show API key"}
+                  aria-label={showKey ? "Hide key" : "Show key"}
                 >
                   {showKey ? <EyeOffIcon className="w-3.5 h-3.5" /> : <EyeIcon className="w-3.5 h-3.5" />}
                 </button>
               </div>
-              <p className="text-xs text-gray-400">
-                Your key is never stored or logged. It is sent only with each request.
-              </p>
+              {current.keyHint && (
+                <p className="text-xs text-gray-400">{current.keyHint}</p>
+              )}
             </div>
           )}
+
+          {/* Model field */}
+          {current.showModel && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-gray-500">
+                Model
+                {current.requiresModel ? (
+                  <span className="text-red-400 font-normal ml-1">— required</span>
+                ) : (
+                  <span className="text-gray-400 font-normal ml-1">
+                    — optional (default: {current.defaultModel})
+                  </span>
+                )}
+              </p>
+              <input
+                type="text"
+                value={modelId}
+                onChange={(e) => onModelIdChange(e.target.value)}
+                placeholder={
+                  current.requiresModel
+                    ? current.modelExamples
+                    : current.defaultModel
+                }
+                autoComplete="off"
+                spellCheck={false}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent font-mono"
+              />
+              {current.modelExamples && !current.requiresModel && (
+                <p className="text-xs text-gray-400">{current.modelExamples}</p>
+              )}
+            </div>
+          )}
+
         </div>
       )}
     </div>

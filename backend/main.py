@@ -78,6 +78,7 @@ class AskRequest(BaseModel):
     question: str
     provider: str = "huggingface"
     api_key: str | None = None
+    model_id: str | None = None  # Optional model override; required for huggingface_custom
 
 
 class SourceCitation(BaseModel):
@@ -219,6 +220,7 @@ async def ask_question(body: AskRequest) -> AskResponse:
             question=body.question,
             provider=body.provider,
             api_key=body.api_key,
+            model_id=body.model_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

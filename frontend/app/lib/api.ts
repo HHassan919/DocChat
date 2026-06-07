@@ -63,18 +63,21 @@ export async function uploadDocuments(
 /**
  * Ask a question against the documents in the given session.
  * Returns the LLM answer and a list of source citations.
+ * modelId is optional for all providers except huggingface_custom.
  */
 export async function askQuestion(
   sessionId: string,
   question: string,
   provider: string = "huggingface",
-  apiKey?: string
+  apiKey?: string,
+  modelId?: string
 ): Promise<AskResponse> {
   const response = await client.post<AskResponse>("/ask", {
     session_id: sessionId,
     question,
     provider,
     api_key: apiKey ?? null,
+    model_id: modelId ?? null,
   });
   return response.data;
 }

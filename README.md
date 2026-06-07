@@ -37,30 +37,38 @@ No hallucination. No guessing. Every answer is grounded in your documents.
 | Vector Store | Chroma (in-memory, per-session) |
 | PDF Extraction | pdfplumber |
 | Embeddings | sentence-transformers/all-MiniLM-L6-v2 |
-| Default LLM | Zephyr-7B-Beta (HuggingFace free tier) |
-| Optional LLMs | Google Gemini 1.5 Flash, OpenAI GPT-4o-mini |
+| Default LLM | Zephyr-7B-Beta (HuggingFace, no key required) |
+| Optional LLMs | HuggingFace Custom, Anthropic Claude, Google Gemini, OpenAI GPT |
 | Frontend | Next.js 14 (App Router), TypeScript, Tailwind CSS |
 | Deployment | Render (backend), Vercel (frontend) |
 
 ## LLM Providers
 
-DocChat works out of the box with no API key required. If you want better answer quality, you can switch providers in the sidebar during any session.
+DocChat works out of the box with no API key required. Switch providers at any time using the **LLM Provider** panel in the sidebar — changes take effect on your next question without any page reload.
 
-| Provider | Model | Cost | How to switch |
-|---|---|---|---|
-| **HuggingFace** (default) | Zephyr-7B-Beta | Free, no key needed | Selected by default |
-| **Google Gemini** | Gemini 1.5 Flash | Free API key | Get key at [aistudio.google.com](https://aistudio.google.com) → paste in the sidebar |
-| **OpenAI** | GPT-4o-mini | Pay-per-use | Get key at [platform.openai.com](https://platform.openai.com/api-keys) → paste in the sidebar |
+| # | Provider | Model | Cost | What you need |
+|---|---|---|---|---|
+| 1 | **HuggingFace** (default) | Zephyr-7B-Beta | Free | Nothing — works anonymously |
+| 2 | **HuggingFace Custom** | Any public HF model | Free | HF token + model ID |
+| 3 | **Anthropic Claude** | Claude 3.5 Haiku (default) | Paid | API key from [console.anthropic.com](https://console.anthropic.com) |
+| 4 | **Google Gemini** | Gemini 1.5 Flash (default) | Free key | API key from [aistudio.google.com](https://aistudio.google.com) |
+| 5 | **OpenAI** | GPT-4o-mini (default) | Paid | API key from [platform.openai.com](https://platform.openai.com/api-keys) |
 
-**How to change providers in the app:**
+**How to switch providers:**
 1. Open the **LLM Provider** panel in the left sidebar (click to expand)
-2. Select your preferred provider
-3. For Gemini or OpenAI, paste your API key in the field that appears
-4. Your next question will use the selected provider
+2. Select a provider — the panel shows exactly what each one needs
+3. Paste your API key and optionally specify a model (or leave blank to use the default)
+4. Ask your next question — it uses the new provider immediately
 
-> Your API key is sent with each request and is never stored, logged, or retained on the server. It lives only in your browser tab.
+**Model override:** For providers 2–5 you can type any compatible model ID in the model field. Leave it blank to use the default shown in the placeholder. Examples:
+- Anthropic: `claude-3-5-sonnet-20241022`, `claude-3-opus-20240229`
+- Gemini: `gemini-1.5-pro`, `gemini-2.0-flash`
+- OpenAI: `gpt-4o`, `gpt-4-turbo`, `gpt-3.5-turbo`
+- HuggingFace Custom: `mistralai/Mistral-7B-Instruct-v0.2`, `meta-llama/Llama-3.2-3B-Instruct`
 
-**Recommended for best results:** Google Gemini — free API key, takes 30 seconds to set up, and produces significantly better answers than the anonymous free tier.
+> Your API key is sent with each request only. It is never stored, logged, or retained on the server — it lives only in your browser tab for the duration of your session.
+
+**Recommended for best free results:** Google Gemini — free API key, 30 seconds to set up, excellent answer quality.
 
 ## Local Setup — Without Docker
 

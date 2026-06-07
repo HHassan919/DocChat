@@ -30,9 +30,10 @@ export default function HomePage() {
   // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
 
-  // Provider state
+  // Provider state — changes take effect on the next question sent
   const [provider, setProvider] = useState<Provider>("huggingface");
   const [apiKey, setApiKey] = useState("");
+  const [modelId, setModelId] = useState("");
 
   // Loading flags
   const [isUploading, setIsUploading] = useState(false);
@@ -127,7 +128,8 @@ export default function HomePage() {
           sessionId,
           question,
           provider,
-          apiKey || undefined
+          apiKey || undefined,
+          modelId || undefined
         );
         updateMessage(loadingId, {
           content: result.answer,
@@ -206,6 +208,8 @@ export default function HomePage() {
                 onProviderChange={setProvider}
                 apiKey={apiKey}
                 onApiKeyChange={setApiKey}
+                modelId={modelId}
+                onModelIdChange={setModelId}
               />
             </div>
           </div>

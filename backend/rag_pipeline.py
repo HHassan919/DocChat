@@ -33,11 +33,17 @@ CHUNK_SIZE = 800
 CHUNK_OVERLAP = 100
 TOP_K_CHUNKS = 5
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-# Zephyr-7B is fine-tuned specifically for instruction following and gives
-# noticeably better RAG answers than base Mistral on the HF free tier.
+
+# Default model for the zero-config free HuggingFace path.
+# Zephyr-7B is fine-tuned for instruction following — better RAG answers than base Mistral.
 DEFAULT_HF_MODEL = "HuggingFaceH4/zephyr-7b-beta"
 
-SUPPORTED_PROVIDERS = {"huggingface", "openai", "gemini"}
+# Fallback models used when a paid provider is selected but no model_id is supplied.
+DEFAULT_ANTHROPIC_MODEL = "claude-3-5-haiku-20241022"
+DEFAULT_GEMINI_MODEL = "gemini-1.5-flash"
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+
+SUPPORTED_PROVIDERS = {"huggingface", "huggingface_custom", "anthropic", "openai", "gemini"}
 
 # Prompt template with explicit citation instructions and a clear no-hallucination boundary.
 # The numbered [N] markers align with the source list returned to the frontend.
@@ -122,15 +128,22 @@ class RAGPipeline:
         return self.session_id, doc_names, len(all_chunks)
 
     def answer_question(
-        self, question: str, provider: str = "huggingface", api_key: str | None = None
+        self,
+        question: str,
+        provider: str = "huggingface",
+        api_key: str | None = None,
+        model_id: str | None = None,
     ) -> tuple[str, list[dict[str, Any]]]:
         """
         Retrieve relevant chunks and generate a cited answer via the chosen LLM.
 
         Args:
-            question: The user's natural-language question.
-            provider:  "huggingface", "openai", or "gemini".
+            question:  The user's natural-language question.
+            provider:  One of "huggingface", "huggingface_custom", "anthropic",
+                       "gemini", or "openai".
             api_key:   Visitor-supplied key (used for this call only, never stored).
+            model_id:  Optional model override. Falls back to the provider default
+                       when omitted. Required for "huggingface_custom".
 
         Returns:
             Tuple of (answer_string, list_of_source_dicts).
@@ -147,7 +160,7 @@ class RAGPipeline:
         context, sources = self._build_context(chunks)
         prompt = RAG_PROMPT_TEMPLATE.format(context=context, question=question)
 
-        llm = self._build_llm(provider, api_key)
+        llm = self._build_llm(provider, api_key, model_id)
         answer = self._invoke_llm(llm, prompt)
 
         return answer, sources
@@ -259,15 +272,24 @@ class RAGPipeline:
     # LLM factory
     # ------------------------------------------------------------------
 
-    def _build_llm(self, provider: str, api_key: str | None) -> Any:
+    def _build_llm(
+        self, provider: str, api_key: str | None, model_id: str | None = None
+    ) -> Any:
         """
-        Instantiate the correct LangChain LLM wrapper based on provider.
+        Instantiate the correct LangChain LLM wrapper for the chosen provider.
 
-        HuggingFace: uses HF_API_TOKEN env var if available, else anonymous.
-        OpenAI / Gemini: require a visitor-supplied api_key.
+        Provider routing:
+          huggingface        → Zephyr-7B-Beta, no key required (anonymous or env token)
+          huggingface_custom → caller-specified model_id + api_key (HF token required)
+          anthropic          → Claude via Anthropic API, key required
+          gemini             → Gemini via Google API, key required
+          openai             → GPT via OpenAI API, key required
+
+        model_id is optional for anthropic/gemini/openai — falls back to the
+        provider default. model_id is required for huggingface_custom.
         """
         if provider == "huggingface":
-            hf_token = os.getenv("HF_API_TOKEN") or api_key or None
+            hf_token = os.getenv("HF_API_TOKEN") or None
             return HuggingFaceEndpoint(
                 repo_id=DEFAULT_HF_MODEL,
                 huggingfacehub_api_token=hf_token,
@@ -275,30 +297,61 @@ class RAGPipeline:
                 temperature=0.1,
             )
 
-        if provider == "openai":
+        if provider == "huggingface_custom":
             if not api_key:
-                raise ValueError("An OpenAI API key is required for the OpenAI provider.")
-            # Import here to avoid loading the library when not needed
-            from langchain_openai import ChatOpenAI  # noqa: PLC0415
+                raise ValueError(
+                    "A HuggingFace API token is required for the custom HuggingFace provider."
+                )
+            if not model_id or not model_id.strip():
+                raise ValueError(
+                    "A model ID is required for the custom HuggingFace provider "
+                    "(e.g. mistralai/Mistral-7B-Instruct-v0.2)."
+                )
+            return HuggingFaceEndpoint(
+                repo_id=model_id.strip(),
+                huggingfacehub_api_token=api_key,
+                max_new_tokens=512,
+                temperature=0.1,
+            )
 
-            return ChatOpenAI(
-                model="gpt-4o-mini",
+        if provider == "anthropic":
+            if not api_key:
+                raise ValueError("An Anthropic API key is required for the Anthropic provider.")
+            from langchain_anthropic import ChatAnthropic  # noqa: PLC0415
+
+            return ChatAnthropic(
+                model=model_id.strip() if model_id and model_id.strip() else DEFAULT_ANTHROPIC_MODEL,
                 api_key=api_key,
                 temperature=0.1,
+                max_tokens=1024,
             )
 
         if provider == "gemini":
             if not api_key:
-                raise ValueError("A Google Gemini API key is required for the Gemini provider.")
+                raise ValueError("A Google API key is required for the Gemini provider.")
             from langchain_google_genai import ChatGoogleGenerativeAI  # noqa: PLC0415
 
             return ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash",
+                model=model_id.strip() if model_id and model_id.strip() else DEFAULT_GEMINI_MODEL,
                 google_api_key=api_key,
                 temperature=0.1,
             )
 
-        raise ValueError(f"Unsupported provider: {provider}")
+        if provider == "openai":
+            if not api_key:
+                raise ValueError("An OpenAI API key is required for the OpenAI provider.")
+            from langchain_openai import ChatOpenAI  # noqa: PLC0415
+
+            return ChatOpenAI(
+                model=model_id.strip() if model_id and model_id.strip() else DEFAULT_OPENAI_MODEL,
+                api_key=api_key,
+                temperature=0.1,
+            )
+
+        raise ValueError(
+            f"Unsupported provider '{provider}'. "
+            f"Choose from: {', '.join(sorted(SUPPORTED_PROVIDERS))}."
+        )
 
     def _invoke_llm(self, llm: Any, prompt: str) -> str:
         """
