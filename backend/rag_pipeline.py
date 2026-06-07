@@ -34,9 +34,15 @@ CHUNK_OVERLAP = 100
 TOP_K_CHUNKS = 5
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
-# Default model for the zero-config free HuggingFace path.
-# Zephyr-7B is fine-tuned for instruction following — better RAG answers than base Mistral.
-DEFAULT_HF_MODEL = "HuggingFaceH4/zephyr-7b-beta"
+# Ordered list of free HuggingFace models tried at runtime.
+# If the first model is rate-limited or loading, the next one is attempted automatically.
+FREE_HF_FALLBACK_MODELS = [
+    "HuggingFaceH4/zephyr-7b-beta",          # Best quality; first choice
+    "mistralai/Mistral-7B-Instruct-v0.2",     # Strong alternative
+    "tiiuae/falcon-7b-instruct",               # Broader free-tier availability
+    "google/flan-t5-xxl",                      # Reliable, smaller footprint
+    "google/flan-t5-large",                    # Very small; almost always available
+]
 
 # Fallback models used when a paid provider is selected but no model_id is supplied.
 DEFAULT_ANTHROPIC_MODEL = "claude-3-5-haiku-20241022"
@@ -160,8 +166,11 @@ class RAGPipeline:
         context, sources = self._build_context(chunks)
         prompt = RAG_PROMPT_TEMPLATE.format(context=context, question=question)
 
-        llm = self._build_llm(provider, api_key, model_id)
-        answer = self._invoke_llm(llm, prompt)
+        if provider == "huggingface":
+            answer = self._invoke_with_hf_fallback(prompt)
+        else:
+            llm = self._build_llm(provider, api_key, model_id)
+            answer = self._invoke_llm(llm, prompt)
 
         return answer, sources
 
@@ -291,7 +300,7 @@ class RAGPipeline:
         if provider == "huggingface":
             hf_token = os.getenv("HF_API_TOKEN") or None
             return HuggingFaceEndpoint(
-                repo_id=DEFAULT_HF_MODEL,
+                repo_id=FREE_HF_FALLBACK_MODELS[0],
                 huggingfacehub_api_token=hf_token,
                 max_new_tokens=512,
                 temperature=0.1,
@@ -352,6 +361,43 @@ class RAGPipeline:
             f"Unsupported provider '{provider}'. "
             f"Choose from: {', '.join(sorted(SUPPORTED_PROVIDERS))}."
         )
+
+    def _invoke_with_hf_fallback(self, prompt: str) -> str:
+        """
+        Try each model in FREE_HF_FALLBACK_MODELS in order until one responds.
+
+        Catches any exception per model and moves on — covers rate limits,
+        cold-start 503s, auth errors on anonymous tier, and model loading timeouts.
+        Uses HF_API_TOKEN env var if set; otherwise tries anonymously.
+        """
+        hf_token = os.getenv("HF_API_TOKEN") or None
+        last_exc: Exception | None = None
+
+        for model_id in FREE_HF_FALLBACK_MODELS:
+            try:
+                llm = HuggingFaceEndpoint(
+                    repo_id=model_id,
+                    huggingfacehub_api_token=hf_token,
+                    max_new_tokens=512,
+                    temperature=0.1,
+                )
+                answer = self._invoke_llm(llm, prompt)
+                logger.info("HuggingFace free: answered via %s", model_id)
+                return answer
+            except Exception as exc:
+                logger.warning(
+                    "HuggingFace model %s unavailable (%s): %s",
+                    model_id,
+                    type(exc).__name__,
+                    str(exc)[:200],
+                )
+                last_exc = exc
+
+        raise RuntimeError(
+            "All HuggingFace free models are currently unavailable. "
+            "Switch to Google Gemini (free key at aistudio.google.com) for instant, "
+            "high-quality responses."
+        ) from last_exc
 
     def _invoke_llm(self, llm: Any, prompt: str) -> str:
         """

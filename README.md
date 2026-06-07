@@ -23,7 +23,7 @@ No hallucination. No guessing. Every answer is grounded in your documents.
 
 - **Multi-document upload** — drag and drop up to 5 PDFs, 20 MB each
 - **Cited answers** — every response shows document name, page number, and the matched excerpt
-- **Three LLM options** — use the free default, or plug in your own Gemini or OpenAI key for higher quality
+- **Five LLM providers** — use the free default (auto-fallback chain of 5 models), or plug in your own key for Anthropic, Gemini, or OpenAI
 - **Sample documents** — hit "Try with sample documents" to explore the app instantly, no upload needed
 - **Session isolation** — each session has its own in-memory vector store; nothing is persisted on the server
 - **Fully containerized** — runs with a single `docker-compose up` command
@@ -48,7 +48,7 @@ DocChat works out of the box with no API key required. Switch providers at any t
 
 | # | Provider | Model | Cost | What you need |
 |---|---|---|---|---|
-| 1 | **HuggingFace** (default) | Zephyr-7B-Beta | Free | Nothing — works anonymously |
+| 1 | **HuggingFace** (default) | Zephyr-7B-Beta → auto-fallback chain | Free | Nothing — tries 5 models automatically if one is unavailable |
 | 2 | **HuggingFace Custom** | Any public HF model | Free | HF token + model ID |
 | 3 | **Anthropic Claude** | Claude 3.5 Haiku (default) | Paid | API key from [console.anthropic.com](https://console.anthropic.com) |
 | 4 | **Google Gemini** | Gemini 1.5 Flash (default) | Free key | API key from [aistudio.google.com](https://aistudio.google.com) |
@@ -114,7 +114,13 @@ Open `http://localhost:3000`.
 The fastest way to run the full stack locally.
 
 ### Prerequisites
-- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+Docker Engine and Docker Compose. Install for your OS:
+
+| OS | Install guide |
+|---|---|
+| **Ubuntu / Debian** | [Official convenience script](https://docs.docker.com/engine/install/debian/) — one `curl` command installs Docker Engine + Compose |
+| **Other Linux distros** | [Docker Engine install docs by distro](https://docs.docker.com/engine/install/) |
+| **macOS / Windows** | [Docker Desktop](https://docs.docker.com/get-docker/) (free for personal use) |
 
 ### Run
 

@@ -36,7 +36,7 @@ const PROVIDERS: ProviderConfig[] = [
     label: "HuggingFace",
     badge: "Free",
     badgeColor: "bg-green-100 text-green-700",
-    description: "Zephyr-7B-Beta — no key required, but rate limits apply on free tier",
+    description: "No key required — tries Zephyr-7B-Beta first, then falls back through 4 models automatically",
     requiresKey: false,
     requiresModel: false,
     showModel: false,
